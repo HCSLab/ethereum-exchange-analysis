@@ -9,13 +9,27 @@ api_key = '39M8BBF53U6M7N2YS92M163RP3RCZF6GUK'
 api_key_backup = 'IGK5V2U9EW3ZJRCZHQUVGW3DEPXNVCB73G'
 #===================================================================
 uniswap_v2_router_address = '0x7a250d5630b4cf539739df2c5dacb4c659f2488d'
-# block_end = 12327654 # 2021.4.28: 12,327,654
-# block_start = 10200000; # 2020.5.24: 10,127,978
+# end_block = 12327654 # 2021.4.28: 12,327,654
+# start_block = 10200000; # 2020.5.24: 10,127,978
+#===================================================================
+uniswap_v3_router_address = '0xE592427A0AEce92De3Edee1F18E0157C05861564'
+# end_block = 
+# start_block = 12343421;	# 2021-04-30 18:23:59
 #===================================================================
 # https://etherscan.io/accounts/label/sushiswap
 sushiswap_router_address = '0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f'
-block_end = 12327654 # 2021.4.28: 12,327,654
-block_start = 10790000; # 2020.8.28: 10,127,978
+# end_block = 12327654 # 2021.4.28: 12,327,654
+# start_block = 10790000; # 2020.8.28: 10,127,978
+
+# ======================= Raw Attributes =======================
+external_all = ['blockNumber', 'timeStamp', 'hash', 'nonce', 'blockHash', 'transactionIndex', 'from', 'to', 'value', 'gas', 'gasPrice', 'isError', 'txreceipt_status', 'input', 'contractAddress', 'cumulativeGasUsed', 'gasUsed', 'confirmations']
+internal_all = ['blockNumber', 'timeStamp', 'hash', 'from', 'to', 'value', 'contractAddress', 'input', 'type', 'gas', 'gasUsed', 'traceId', 'isError', 'errCode']
+erc20_all = ['blockNumber', 'timeStamp', 'hash', 'nonce', 'blockHash', 'from', 'contractAddress', 'to', 'value', 'tokenName', 'tokenSymbol', 'tokenDecimal', 'transactionIndex', 'gas', 'gasPrice', 'gasUsed', 'cumulativeGasUsed', 'input', 'confirmations']
+erc721_all = ['blockNumber', 'timeStamp', 'hash', 'nonce', 'blockHash', 'from', 'contractAddress', 'to', 'tokenID', 'tokenName', 'tokenSymbol', 'tokenDecimal', 'transactionIndex', 'gas', 'gasPrice', 'gasUsed', 'cumulativeGasUsed', 'input', 'confirmations']
+# ======================= Selected Attributes =======================
+# external_select = ['blockNumber', 'timeStamp', 'from', 'to', 'value', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed'] # tokenName, tokenDecimal
+# erc20_select = ['blockNumber', 'timeStamp', 'from', 'to', 'value', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed', 'tokenName', 'tokenDecimal']
+# erc721_select = ['blockNumber', 'timeStamp', 'from', 'to', 'tokenID', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed', 'tokenName', 'tokenDecimal']
 
 def get_external_transaction(address:str, start_block:str, end_block:str, path:str):
     api_link = f"https://api.etherscan.io/api?module=account&action=txlist&address={address}&startblock={start_block}&endblock={end_block}&sort=asc&apikey={api_key}"
@@ -27,7 +41,13 @@ def get_external_transaction(address:str, start_block:str, end_block:str, path:s
         df['timeStamp']=pd.to_datetime(df['timeStamp'],unit='s')
         df = df.set_index('timeStamp')
         df.fillna('NA')
-        df.to_csv(path + str(start_block) + '.csv')
+
+        if not os.path.exists(path):
+            # ======================== When Collect Transaction from Contract =========================
+            df.to_csv(path)
+        else:
+            # ======================== When Collect Transaction from Address =========================
+            df.to_csv(path, mode='a', header=False)
         return r['status'], 'OK'
     else:
         return r['status'], r['message']
@@ -42,7 +62,12 @@ def get_internal_transaction(address:str, start_block:str, end_block:str, path:s
         df['timeStamp']=pd.to_datetime(df['timeStamp'],unit='s')
         df = df.set_index('timeStamp')
         df.fillna('NA')
-        df.to_csv(path + str(start_block) + '.csv')
+        if not os.path.exists(path):
+            # ======================== When Collect Transaction from Contract =========================
+            df.to_csv(path)
+        else:
+            # ======================== When Collect Transaction from Address =========================
+            df.to_csv(path, mode='a', header=False)
         return r['status'], 'OK'
     else:
         return r['status'], r['message']
@@ -58,7 +83,12 @@ def get_ERC20_transaction(address:str, start_block:str, end_block:str, path:str)
         df['timeStamp']=pd.to_datetime(df['timeStamp'],unit='s')
         df = df.set_index('timeStamp')
         df.fillna('NA')
-        df.to_csv(path + str(start_block) + '.csv')
+        if not os.path.exists(path):
+            # ======================== When Collect Transaction from Contract =========================
+            df.to_csv(path)
+        else:
+            # ======================== When Collect Transaction from Address =========================
+            df.to_csv(path, mode='a', header=False)
         return r['status'], 'OK'
     else:
         return r['status'], r['message']
@@ -94,11 +124,11 @@ def get_ERC721_transaction(address:str, start_block:str, end_block:str, path:str
     # else:
     #     return r['status'], r['message']
 
-def collect(address:str, block_start:str, block_end:str, save_path:str):
+def collect_contract(address:str, start_block:str, end_block:str, save_path:str):
     index = 0
-    block_index = block_start
+    block_index = start_block
     error_list = []
-    while block_index < block_end:
+    while block_index < end_block:
         # ===================== Change the functions here to collect different types of transactions =====================
         # ===================== Don't forget to change the save_path as well =====================
         # status, result = get_external_transaction(address, block_index, block_index+10000, save_path)
@@ -118,20 +148,47 @@ def collect(address:str, block_start:str, block_end:str, save_path:str):
     if error_list != []:
         with open(f'./source/data/error_log/{datetime.datetime.now()}.txt', 'w') as f:
             f.write(str(error_list))
+    return
+    
+def collect_address(address_list_path:str, start_block:int, end_block:int, save_path:str):
+    address_list = np.load(address_list_path, allow_pickle = True)
+    address_len = len(address_list)
+    address_index = 0
+    
+    for address in address_list[2:]:
+        error_list = []
+        index = 0
+        block_index = start_block + 10000
+
+        while block_index < end_block:
+            status, result = get_external_transaction(address, block_index, block_index + 10000, save_path + address + '.csv')
+            # status, result = get_ERC20_transaction(address, block_index, block_index +  10000, save_path)
+            if status == '1':
+                print(f"{address_index}/{address_len}; {address}; {block_index} to {block_index+10000}; Status:", result)
+            else:
+                print(f"{address_index}/{address_len}; {address}; {block_index} to {block_index+10000}; Status:", result)
+                error_list.append((address, block_index, result))
+            index += 1
+            block_index += 10000
+
+        print(f"Processed address{address_index}/{address_len}.")
+        address_index += 1
+
+        # ============================= DEV: Loop Control ===================================
+        # break
+
+    if error_list != []:
+        with open(f'./data/error_log/{datetime.datetime.now()}.txt', 'w') as f:
+            f.write(str(error_list))
     
     return
-if __name__ == '__main__':
-    # ======================= Raw Attributes =======================
-    external_all = ['blockNumber', 'timeStamp', 'hash', 'nonce', 'blockHash', 'transactionIndex', 'from', 'to', 'value', 'gas', 'gasPrice', 'isError', 'txreceipt_status', 'input', 'contractAddress', 'cumulativeGasUsed', 'gasUsed', 'confirmations']
-    internal_all = ['blockNumber', 'timeStamp', 'hash', 'from', 'to', 'value', 'contractAddress', 'input', 'type', 'gas', 'gasUsed', 'traceId', 'isError', 'errCode']
-    erc20_all = ['blockNumber', 'timeStamp', 'hash', 'nonce', 'blockHash', 'from', 'contractAddress', 'to', 'value', 'tokenName', 'tokenSymbol', 'tokenDecimal', 'transactionIndex', 'gas', 'gasPrice', 'gasUsed', 'cumulativeGasUsed', 'input', 'confirmations']
-    erc721_all = ['blockNumber', 'timeStamp', 'hash', 'nonce', 'blockHash', 'from', 'contractAddress', 'to', 'tokenID', 'tokenName', 'tokenSymbol', 'tokenDecimal', 'transactionIndex', 'gas', 'gasPrice', 'gasUsed', 'cumulativeGasUsed', 'input', 'confirmations']
-    # ======================= Selected Attributes =======================
-    # external_select = ['blockNumber', 'timeStamp', 'from', 'to', 'value', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed'] # tokenName, tokenDecimal
-    # erc20_select = ['blockNumber', 'timeStamp', 'from', 'to', 'value', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed', 'tokenName', 'tokenDecimal']
-    # erc721_select = ['blockNumber', 'timeStamp', 'from', 'to', 'tokenID', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed', 'tokenName', 'tokenDecimal']
-    # ======================= Start Program =======================
-    # collect(uniswap_v2_router_address, block_start, block_end, './source/data/uniswap_v2/erc721/')
-    collect(sushiswap_router_address, block_start, block_end, './source/data/sushiswap/erc20/')
 
-    
+
+if __name__ == '__main__':
+    # ======================= Start Program: Scrape Contract =======================
+    # collect(uniswap_v2_router_address, start_block, end_block, './source/data/uniswap_v2/erc721/')
+    # collect_contract(sushiswap_router_address, start_block, end_block, './source/data/sushiswap/erc20/')
+
+    # ======================= Start Program: Scrape User Address =======================
+    # 212 * 50000 = 10600000 requests
+    collect_address('./data/overlap_all_univ2-sushi.npy', 10200000, 12327654, './data/overlap_address/external/')
