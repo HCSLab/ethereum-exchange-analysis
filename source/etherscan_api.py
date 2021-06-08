@@ -150,7 +150,7 @@ def collect_contract(address:str, start_block:str, end_block:str, save_path:str)
             f.write(str(error_list))
     return
     
-def collect_address(address_list_path:str, start_block:int, end_block:int, save_path:str):
+# def collect_address(address_list_path:str, start_block:int, end_block:int, save_path:str):
     address_list = np.load(address_list_path, allow_pickle = True)
     address_len = len(address_list)
     address_index = 0
@@ -183,6 +183,35 @@ def collect_address(address_list_path:str, start_block:int, end_block:int, save_
     
     return
 
+def collect_address_lite(address_list_path:str, save_path:str):
+    address_list = np.load(address_list_path, allow_pickle = True)[479+424+1728:]
+    address_total = len(address_list)
+    address_index = 0   
+    error_list = []
+
+
+    for address in address_list:
+        try:
+            status, result = get_external_transaction(address, 10000000, 12327654, save_path + address + '.csv')
+            # status, result = get_ERC20_transaction(address, block_index, block_index +  10000, save_path)
+            if status == '1':
+                print(f"{address_index}/{address_total}; {address}; Status:", result)
+            else:
+                print(f"{address_index}/{address_total}; {address}; Status:", result)
+                error_list.append((address, result))
+        except:
+            error_list.append((address, 'Program Error'))
+        address_index += 1
+
+        # ============================= DEV: Loop Control ===================================
+        # break
+
+    if error_list != []:
+        with open(f'./data/error_log/{datetime.datetime.now()}.txt', 'w') as f:
+            f.write(str(error_list))
+    
+    return
+
 
 if __name__ == '__main__':
     # ======================= Start Program: Scrape Contract =======================
@@ -191,4 +220,5 @@ if __name__ == '__main__':
 
     # ======================= Start Program: Scrape User Address =======================
     # 212 * 50000 = 10600000 requests
-    collect_address('./data/overlap_all_univ2-sushi.npy', 10200000, 12327654, './data/overlap_address/external/')
+    # Use a count down mode to scrape address info.
+    collect_address_lite('./data/overlap_all_univ2-sushi.npy', './data/overlap_address/external/')
