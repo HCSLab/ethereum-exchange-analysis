@@ -30,6 +30,9 @@ erc721_all = ['blockNumber', 'timeStamp', 'hash', 'nonce', 'blockHash', 'from', 
 # external_select = ['blockNumber', 'timeStamp', 'from', 'to', 'value', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed'] # tokenName, tokenDecimal
 # erc20_select = ['blockNumber', 'timeStamp', 'from', 'to', 'value', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed', 'tokenName', 'tokenDecimal']
 # erc721_select = ['blockNumber', 'timeStamp', 'from', 'to', 'tokenID', 'gas', 'gasPrice', 'contractAddress', 'cumulativeGasUsed', 'gasUsed', 'tokenName', 'tokenDecimal']
+# ======================= Drop Attributes =======================
+external_drop = ['hash', 'nonce', 'blockHash', 'transactionIndex', 'txreceipt_status', 'input', 'confirmations']
+
 
 def get_external_transaction(address:str, start_block:str, end_block:str, path:str):
     api_link = f"https://api.etherscan.io/api?module=account&action=txlist&address={address}&startblock={start_block}&endblock={end_block}&sort=asc&apikey={api_key}"
@@ -41,7 +44,7 @@ def get_external_transaction(address:str, start_block:str, end_block:str, path:s
         df['timeStamp']=pd.to_datetime(df['timeStamp'],unit='s')
         df = df.set_index('timeStamp')
         df.fillna('NA')
-
+        df = df.drop(columns=external_drop)
         if not os.path.exists(path):
             # ======================== When Collect Transaction from Contract =========================
             df.to_csv(path)
@@ -124,7 +127,7 @@ def get_ERC721_transaction(address:str, start_block:str, end_block:str, path:str
     # else:
     #     return r['status'], r['message']
 
-def collect_contract(address:str, start_block:str, end_block:str, save_path:str):
+def collect_contract(address:str, start_block:int, end_block:int, save_path:str):
     index = 0
     block_index = start_block
     error_list = []
@@ -150,28 +153,28 @@ def collect_contract(address:str, start_block:str, end_block:str, save_path:str)
             f.write(str(error_list))
     return
     
-# def collect_address(address_list_path:str, start_block:int, end_block:int, save_path:str):
-    address_list = np.load(address_list_path, allow_pickle = True)
+def collect_address(address_list_path:str, start_block:int, end_block:int, save_path:str):
+    address_list = np.load(address_list_path, allow_pickle = True)[71:]
     address_len = len(address_list)
     address_index = 0
     
-    for address in address_list[2:]:
+    for address in address_list[:]:
         error_list = []
         index = 0
-        block_index = start_block + 10000
+        block_index = start_block
 
         while block_index < end_block:
-            status, result = get_external_transaction(address, block_index, block_index + 10000, save_path + address + '.csv')
+            status, result = get_external_transaction(address, block_index, block_index + 100000, save_path + address + '.csv')
             # status, result = get_ERC20_transaction(address, block_index, block_index +  10000, save_path)
             if status == '1':
-                print(f"{address_index}/{address_len}; {address}; {block_index} to {block_index+10000}; Status:", result)
+                print(f"{address_index}/{address_len}; {address}; {block_index} to {block_index + 100000}; Status:", result)
             else:
-                print(f"{address_index}/{address_len}; {address}; {block_index} to {block_index+10000}; Status:", result)
+                print(f"{address_index}/{address_len}; {address}; {block_index} to {block_index + 100000}; Status:", result)
                 error_list.append((address, block_index, result))
             index += 1
-            block_index += 10000
+            block_index += 100000
 
-        print(f"Processed address{address_index}/{address_len}.")
+        print(f"Processed address: {address_index}/{address_len}.")
         address_index += 1
 
         # ============================= DEV: Loop Control ===================================
@@ -184,7 +187,7 @@ def collect_contract(address:str, start_block:str, end_block:str, save_path:str)
     return
 
 def collect_address_lite(address_list_path:str, save_path:str):
-    address_list = np.load(address_list_path, allow_pickle = True)[479+424+1728:]
+    address_list = np.load(address_list_path, allow_pickle = True)[43671:] #479+424+1728+14600+899+7230+15958
     address_total = len(address_list)
     address_index = 0   
     error_list = []
@@ -200,14 +203,21 @@ def collect_address_lite(address_list_path:str, save_path:str):
                 print(f"{address_index}/{address_total}; {address}; Status:", result)
                 error_list.append((address, result))
         except:
+            print(f"{address_index}/{address_total}; {address}; Status:", result)
             error_list.append((address, 'Program Error'))
         address_index += 1
 
         # ============================= DEV: Loop Control ===================================
         # break
+        # if address_index % 500 == 0 and error_list != []:
+        #     with open(f'./data/error_log/{datetime.datetime.now()}.txt', 'w') as f:
+        #         f.write(str(error_list))
+        #         error_list = []
+        # else:
+        #     pass
 
     if error_list != []:
-        with open(f'./data/error_log/{datetime.datetime.now()}.txt', 'w') as f:
+        with open(f'error_list.txt', 'w') as f:
             f.write(str(error_list))
     
     return
@@ -221,4 +231,4 @@ if __name__ == '__main__':
     # ======================= Start Program: Scrape User Address =======================
     # 212 * 50000 = 10600000 requests
     # Use a count down mode to scrape address info.
-    collect_address_lite('./data/overlap_all_univ2-sushi.npy', './data/overlap_address/external/')
+    collect_address('./data/overlap_larger_10000.npy', 10200000, 12327654,'./data/overlap_address/external_large/')
